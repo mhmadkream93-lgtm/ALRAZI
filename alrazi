@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>شركة الرازي للحلول التقنية</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        body { font-family: 'Tajawal', sans-serif; background-color: #f8fafc; -webkit-tap-highlight-color: transparent; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
+</head>
+<body class="flex flex-col lg:flex-row h-screen overflow-hidden text-gray-800">
+
+    <div id="toastContainer" class="fixed bottom-5 left-5 z-50 flex flex-col gap-2 no-print"></div>
+
+    <!-- نافذة طوارئ تظهر في حال حدوث أي خطأ بدلاً من إغلاق التطبيق -->
+    <div id="errorScreen" class="hidden fixed inset-0 bg-red-900 text-white z-50 p-6 flex flex-col justify-center items-center text-center">
+        <i class="fas fa-exclamation-triangle text-5xl mb-4 text-yellow-300"></i>
+        <h2 class="text-xl font-bold mb-2">تنبيه تشغيلي</h2>
+        <p id="errorDetails" class="text-sm bg-red-950 p-4 rounded-lg max-w-md mb-4 font-mono"></p>
+        <button onclick="location.reload()" class="bg-white text-red-900 font-bold px-6 py-2 rounded-lg text-sm">إعادة المحاولة</button>
+    </div>
+
+    <!-- زر القائمة للجوال -->
+    <div class="lg:hidden bg-slate-900 text-white p-4 flex justify-between items-center no-print shrink-0">
+        <span class="font-bold text-blue-400 text-sm">شركة الرازي للحلول التقنية</span>
+        <button onclick="toggleMobileSidebar()" class="p-2 bg-slate-800 rounded-lg text-white">
+            <i class="fas fa-bars text-lg"></i>
+        </button>
+    </div>
+
+    <!-- القائمة الجانبية -->
+    <aside id="sidebar" class="fixed inset-y-0 right-0 z-40 w-64 bg-slate-900 text-white flex flex-col no-print border-l border-slate-800 transform translate-x-full lg:translate-x-0 transition-transform duration-300">
+        <div class="p-6 text-center border-b border-slate-800 flex justify-between items-center lg:block">
+            <div>
+                <div class="w-12 h-12 bg-blue-600 rounded-lg mx-auto flex items-center justify-center text-xl font-bold mb-2 shadow-lg">
+                    <i class="fas fa-microchip"></i>
+                </div>
+                <h2 class="text-xl font-bold text-blue-400">شركة الرازي</h2>
+                <p class="text-xs text-slate-400 mt-1">إدارة التكاليف والإنتاج والبيع</p>
+            </div>
+            <button onclick="toggleMobileSidebar()" class="lg:hidden text-slate-400 hover:text-white">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+
+        <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
+            <button onclick="switchTab('dashboard')" id="btn-dashboard" class="w-full text-right p-3 rounded-lg hover:bg-slate-800 transition flex items-center gap-3 text-blue-400 bg-slate-800">
+                <i class="fas fa-chart-line text-blue-400 w-5 text-center"></i>
+                <span class="font-medium text-sm">لوحة التحكم</span>
+            </button>
+            <button onclick="switchTab('rawWarehouse')" id="btn-rawWarehouse" class="w-full text-right p-3 rounded-lg hover:bg-slate-800 transition flex items-center gap-3 text-slate-300">
+                <i class="fas fa-microchip text-purple-400 w-5 text-center"></i>
+                <span class="font-medium text-sm">مستودع المواد الأولية</span>
+            </button>
+            <button onclick="switchTab('production')" id="btn-production" class="w-full text-right p-3 rounded-lg hover:bg-slate-800 transition flex items-center gap-3 text-slate-300">
+                <i class="fas fa-industry text-amber-400 w-5 text-center"></i>
+                <span class="font-medium text-sm">قسم الإنتاج والتجميع</span>
+            </button>
+            <button onclick="switchTab('inventory')" id="btn-inventory" class="w-full text-right p-3 rounded-lg hover:bg-slate-800 transition flex items-center gap-3 text-slate-300">
+                <i class="fas fa-boxes text-emerald-400 w-5 text-center"></i>
+                <span class="font-medium text-sm">مستودع المنتجات الجاهزة</span>
+            </button>
+            <button onclick="switchTab('invoice')" id="btn-invoice" class="w-full text-right p-3 rounded-lg hover:bg-slate-800 transition flex items-center gap-3 text-slate-300">
+                <i class="fas fa-file-invoice-dollar text-cyan-400 w-5 text-center"></i>
+                <span class="font-medium text-sm">الفاتورة ونقطة البيع</span>
+            </button>
+        </nav>
+
+        <div class="p-4 border-t border-slate-800 bg-slate-950">
+            <label class="block text-[11px] text-slate-400 mb-1">سعر صرف الدولار (ل.س):</label>
+            <input type="number" id="usdExchangeRate" value="0" onchange="updateExchangeRate()" class="w-full p-2 bg-slate-800 border border-slate-700 rounded text-xs text-amber-400 font-bold focus:outline-none">
+        </div>
+    </aside>
+
+    <!-- المحتوى الرئيسي -->
+    <main class="flex-1 flex flex-col h-screen overflow-y-auto bg-slate-50 w-full">
+        <header class="bg-white shadow-xs px-6 py-4 no-print flex justify-between items-center border-b border-slate-200 shrink-0">
+            <h1 class="text-lg md:text-xl font-bold text-slate-800" id="pageTitle">لوحة التحكم الرئيسية</h1>
+            <span id="currentDate" class="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full"></span>
+        </header>
+
+        <div class="p-4 md:p-6 flex-1">
+            <section id="dashboard" class="tab-content active space-y-6">
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs flex justify-between items-center">
+                        <div><p class="text-xs text-slate-500 font-bold">مبيعات اليوم ($)</p><h3 class="text-2xl font-bold text-slate-800" id="dashTotalUSD">$0</h3></div>
+                        <i class="fas fa-dollar-sign text-2xl text-emerald-500 bg-emerald-50 p-3 rounded-lg"></i>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs flex justify-between items-center">
+                        <div><p class="text-xs text-slate-500 font-bold">مبيعات اليوم (ل.س)</p><h3 class="text-xl font-bold text-blue-600" id="dashTotalSYP">0 ل.س</h3></div>
+                        <i class="fas fa-coins text-2xl text-blue-500 bg-blue-50 p-3 rounded-lg"></i>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs flex justify-between items-center">
+                        <div><p class="text-xs text-slate-500 font-bold">قيمة مواد المخزون الأولية</p><h3 class="text-2xl font-bold text-purple-600" id="dashRawTotalValue">$0</h3></div>
+                        <i class="fas fa-warehouse text-2xl text-purple-500 bg-purple-50 p-3 rounded-lg"></i>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs flex justify-between items-center">
+                        <div><p class="text-xs text-slate-500 font-bold">عمليات التصنيع المنفذة</p><h3 class="text-2xl font-bold text-amber-600" id="dashProdLogsCount">0</h3></div>
+                        <i class="fas fa-industry text-2xl text-amber-500 bg-amber-50 p-3 rounded-lg"></i>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-2xs overflow-x-auto">
+                        <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2"><i class="fas fa-history text-blue-600"></i> أحدث المبيعات</h3>
+                        <table class="w-full text-right text-xs min-w-[300px]">
+                            <thead><tr class="bg-slate-100 border-b text-slate-600"><th class="p-2.5">الفاتورة</th><th class="p-2.5">العميل</th><th class="p-2.5 text-center">المبلغ ($)</th><th class="p-2.5 text-center">المبلغ (ل.س)</th></tr></thead>
+                            <tbody id="dashSalesLog"></tbody>
+                        </table>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-2xs overflow-x-auto">
+                        <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2"><i class="fas fa-cogs text-amber-600"></i> أحدث عمليات التصنيع</h3>
+                        <table class="w-full text-right text-xs min-w-[300px]">
+                            <thead><tr class="bg-slate-100 border-b text-slate-600"><th class="p-2.5">المنتج المصنّع</th><th class="p-2.5 text-center">الكمية المصنّعة</th><th class="p-2.5 text-center">التاريخ والتوقيت</th></tr></thead>
+                            <tbody id="dashProdHistory"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="rawWarehouse" class="tab-content space-y-6">
+                <div class="bg-white p-6 rounded-xl border border-slate-200">
+                    <div class="flex flex-col md:flex-row justify-between items-center mb-6 border-b pb-4 gap-3">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-800">مستودع المواد الأولية والقطع الإلكترونية</h2>
+                            <p class="text-xs text-slate-500">إدارة تكاليف القطع والكميات المتاحة عبر قاعدة البيانات</p>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <button onclick="toggleRestockRawModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
+                                <i class="fas fa-cart-plus"></i> توريد / تحديث سعر
+                            </button>
+                            <button onclick="toggleAddRawModal()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
+                                <i class="fas fa-plus"></i> مادة جديدة
+                            </button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-right text-sm border-collapse min-w-[600px]">
+                            <thead><tr class="bg-slate-100 border-b text-slate-600"><th class="p-3">رمز المادة</th><th class="p-3">اسم المادة</th><th class="p-3 text-center">التكلفة ($)</th><th class="p-3 text-center">التكلفة (ل.س)</th><th class="p-3 text-center">المتوفر</th><th class="p-3 text-center">إجمالي القيمة ($)</th><th class="p-3 text-center">إجراءات</th></tr></thead>
+                            <tbody id="rawMaterialsTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="production" class="tab-content space-y-6">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-2xs lg:col-span-1">
+                        <h3 class="font-bold text-lg text-slate-800 mb-4 border-b pb-2 flex items-center gap-2"><i class="fas fa-industry text-amber-500"></i> أمر تصنيع جديد</h3>
+                        <form onsubmit="handleProductionSubmit(event)" class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">اختر المنتج المراد تصنيعه:</label>
+                                <select id="prodSelectProduct" onchange="updateBOMPreview()" class="w-full p-2.5 border rounded-lg text-sm bg-slate-50 font-bold"></select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">الكمية المطلوبة:</label>
+                                <input type="number" id="prodQuantity" value="1" min="1" oninput="updateBOMPreview()" class="w-full p-2.5 border rounded-lg text-sm font-bold">
+                            </div>
+                            <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                                <h4 class="text-xs font-bold text-slate-700 mb-2 border-b pb-1 flex items-center justify-between">
+                                    <span>المواد المطلوبة:</span>
+                                    <span id="bomStatusBadge" class="text-[10px] px-2 py-0.5 rounded font-bold"></span>
+                                </h4>
+                                <div id="bomListPreview" class="space-y-1.5 text-xs"></div>
+                                <div class="mt-3 pt-2 border-t border-slate-200 flex justify-between font-bold text-xs text-purple-700">
+                                    <span>إجمالي تكلفة المكونات:</span>
+                                    <span id="bomBatchTotalCost">$0.00</span>
+                                </div>
+                            </div>
+                            <button type="submit" id="btnExecuteProduction" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-lg text-sm transition flex items-center justify-center gap-2 shadow-sm">
+                                <i class="fas fa-cogs"></i> تأكيد التصنيع وخصم المواد
+                            </button>
+                        </form>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-2xs lg:col-span-2 overflow-x-auto">
+                        <h3 class="font-bold text-lg text-slate-800 mb-4 border-b pb-2 flex items-center gap-2"><i class="fas fa-boxes-stacked text-blue-600"></i> سجل المخرجات المصنعة</h3>
+                        <table class="w-full text-right text-sm min-w-[400px]">
+                            <thead><tr class="bg-slate-100 border-b text-slate-600"><th class="p-3">المنتج</th><th class="p-3 text-center">الكمية</th><th class="p-3 text-center">التوقيت</th><th class="p-3 text-center">الحالة</th></tr></thead>
+                            <tbody id="productionHistoryTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="inventory" class="tab-content space-y-6">
+                <div class="bg-white p-6 rounded-xl border border-slate-200">
+                    <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-6 border-b pb-4">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-800">مستودع المنتجات الجاهزة والربحية</h2>
+                            <p class="text-xs text-slate-500">حساب تكلفة الإنتاج والربح وسعر البيع</p>
+                        </div>
+                        <button onclick="toggleAddProductModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
+                            <i class="fas fa-plus"></i> إضافة منتج جاهز
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-right text-sm border-collapse min-w-[700px]">
+                            <thead><tr class="bg-slate-100 border-b text-slate-600"><th class="p-3">القسم</th><th class="p-3">اسم المنتج</th><th class="p-3 text-center">تكلفة المكونات ($)</th><th class="p-3 text-center">سعر البيع ($)</th><th class="p-3 text-center">ربح القطعة ($)</th><th class="p-3 text-center">سعر البيع (ل.س)</th><th class="p-3 text-center">المتوفر</th><th class="p-3 text-center">إجراءات</th></tr></thead>
+                            <tbody id="inventoryTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="invoice" class="tab-content">
+                <div class="flex flex-col xl:flex-row gap-6">
+                    <div class="w-full xl:w-1/3 bg-white rounded-xl p-4 border border-slate-200 h-[350px] xl:h-[calc(100vh-180px)] flex flex-col">
+                        <h3 class="font-bold text-slate-800 mb-3 border-b pb-2">اختيار المنتجات للبيع</h3>
+                        <select id="invoiceCatSelect" onchange="filterInvoiceProducts()" class="w-full p-2 border rounded-lg text-xs mb-2 bg-slate-50">
+                            <option value="الكل">جميع الأقسام</option>
+                            <option value="الحمايات">الحمايات</option>
+                            <option value="الحمايات الصناعية (فولت – سايكل)">الحمايات الصناعية</option>
+                            <option value="مقاييس مستوى السوائل">مقاييس مستوى السوائل</option>
+                            <option value="الشواحن الإلكترونية وأنظمة الطاقة">الشواحن وأنظمة الطاقة والفائض</option>
+                            <option value="أوتوماتيك الدرج">أوتوماتيك الدرج</option>
+                            <option value="منظمات الجهد">منظمات الجهد</option>
+                        </select>
+                        <input type="text" id="searchInput" placeholder="بحث باسم المنتج..." class="w-full p-2 border rounded-lg text-xs mb-3" onkeyup="filterInvoiceProducts()">
+                        <div class="overflow-y-auto flex-1 border rounded-lg p-2 space-y-2 bg-slate-50" id="invoiceProductsList"></div>
+                    </div>
+                    <div class="w-full xl:w-2/3 bg-white rounded-xl p-6 md:p-8 border border-slate-200">
+                        <div class="flex justify-between items-start border-b pb-4 mb-6">
+                            <div>
+                                <h1 class="text-xl md:text-2xl font-bold text-slate-800">فاتورة مبيعات</h1>
+                                <p class="text-xs text-slate-500">شركة الرازي للحلول التقنية</p>
+                            </div>
+                            <div class="text-left">
+                                <h2 class="text-base md:text-lg font-bold text-blue-600">Al-Razi Tech</h2>
+                                <p class="text-xs text-slate-400" id="invoiceDateStr"></p>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                            <input type="text" id="custName" class="p-2 border rounded-lg text-sm" placeholder="اسم العميل">
+                            <input type="text" id="custPhone" class="p-2 border rounded-lg text-sm" placeholder="رقم الهاتف">
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full mb-6 text-sm min-w-[400px]">
+                                <thead><tr class="bg-slate-100 border-b"><th class="p-3 text-right">المنتج</th><th class="p-3 text-center">الكمية</th><th class="p-3 text-center">السعر ($)</th><th class="p-3 text-center">الإجمالي ($)</th><th class="p-3 text-center">إجراء</th></tr></thead>
+                                <tbody id="invoiceItems"></tbody>
+                            </table>
+                        </div>
+                        <div class="border-t pt-4 space-y-2">
+                            <div class="flex justify-between text-base md:text-lg font-bold"><span>المجموع بالدولار:</span><span id="grandTotalUSD" class="text-emerald-600">$0.00</span></div>
+                            <div class="flex justify-between text-sm md:text-base font-bold text-slate-600"><span>المعادل بالليرة:</span><span id="grandTotalSYP" class="text-blue-600">0 ل.س</span></div>
+                        </div>
+                        <div class="mt-8 flex flex-wrap justify-end gap-3">
+                            <button onclick="clearInvoice()" class="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg text-sm font-bold">مسح الفاتورة</button>
+                            <button onclick="processCheckoutAndDeduct()" class="bg-emerald-600 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-sm">إتمام البيع وخصم المخزون</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- النوافذ المنبثقة -->
+    <div id="addRawModal" class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl p-6 w-full max-w-md shadow-xl border">
+            <h3 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">إضافة مادة أولية جديدة</h3>
+            <form onsubmit="handleAddNewRawMaterial(event)" class="space-y-4">
+                <div><label class="block text-xs font-bold text-slate-700 mb-1">اسم المادة</label><input type="text" id="newRawName" required class="w-full p-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-xs font-bold text-slate-700 mb-1">التكلفة ($)</label><input type="number" step="0.01" id="newRawCostUSD" required class="w-full p-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-xs font-bold text-slate-700 mb-1">الوحدة</label><input type="text" id="newRawUnit" value="قطعة" required class="w-full p-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-xs font-bold text-slate-700 mb-1">الكمية</label><input type="number" id="newRawStock" required value="100" class="w-full p-2 border rounded-lg text-sm"></div>
+                <div class="flex justify-end gap-2 pt-2"><button type="button" onclick="toggleAddRawModal()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-sm">إلغاء</button><button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-bold">حفظ</button></div>
+            </form>
+        </div>
+    </div>
+
+    <div id="restockRawModal" class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl p-6 w-full max-w-md shadow-xl border">
+            <h3 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">توريد كمية وتحديث سعر</h3>
+            <form onsubmit="handleRestockRaw(event)" class="space-y-4">
+                <div><label class="block text-xs font-bold text-slate-700 mb-1">اختر المادة:</label><select id="restockSelectId" onchange="onRestockMaterialSelect()" class="w-full p-2.5 border rounded-lg text-sm bg-slate-50 font-bold"></select></div>
+                <div><label class="block text-xs font-bold text-slate-700 mb-1">الكمية المضافة:</label><input type="number" id="restockAddQty" required value="10" min="1" class="w-full p-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-xs font-bold text-slate-700 mb-1">التكلفة الجديدة ($):</label><input type="number" step="0.01" id="restockNewCostUSD" required class="w-full p-2 border rounded-lg text-sm"></div>
+                <div class="flex justify-end gap-2 pt-2"><button type="button" onclick="toggleRestockRawModal()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-sm">إلغاء</button><button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold">تأكيد</button></div>
+            </form>
+        </div>
+    </div>
+
+    <div id="editRawModal" class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl p-6 w-full max-w-md shadow-xl border">
+            <h3 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">تعديل المادة</h3>
+            <form onsubmit="handleSaveRawEdit(event)" class="space-y-4">
+                <input type="hidden" id="editRawId">
+                <div><label class="block text-xs font-bold text-slate-700 mb-1">الاسم</label><input type="text" id="editRawName" required class="w-full p-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-xs font-bold text-slate-700 mb-1">التكلفة ($)</label><input type="number" step="0.01" id="editRawCostUSD" required class="w-full p-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-xs font-bold text-slate-700 mb-1">الوحدة</label><input type="text" id="editRawUnit" required class="w-full p-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-xs font-bold text-slate-700 mb-1">المتوفر</label><input type="number" id="editRawStock" required class="w-full p-2 border rounded-lg text-sm"></div>
+                <div class="flex justify-end gap-2 pt-2"><button type="button" onclick="toggleEditRawModal()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-sm">إلغاء</button><button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold">حفظ</button></div>
+            </form>
+        </div>
+    </div>
+
+    <div id="addProductModal" class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl p-6 w-full max-w-md shadow-xl border">
+            <h3 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">إضافة منتج جاهز</h3>
+            <form onsubmit="handleAddNewProduct(event)" class="space-y-4">
+                <div><label class="block text-xs font-bold text-slate-700 mb-1">القسم</label><select id="newProdCategory" class="w-full p-2 border rounded-lg text-sm bg-slate-50"><option value="منظمات الجهد">منظمات الجهد</option><option value="مقاييس مستوى السوائل">مقاييس مستوى السوائل</option><option value="الحمايات">الحمايات</option><option value="الحمايات الصناعية (فولت – سايكل)">الحمايات الصناعية</option><option value="الشواحن الإلكترونية وأنظمة الطاقة">الشواحن وأنظمة الطاقة</option><option value="أوتوماتيك الدرج">أوتوماتيك الدرج</option></select></div>
+                <div><label class="block text-xs font-bold text-slate-700 mb-1">اسم المنتج</label><input type="text" id="newProdName" required class="w-full p-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-xs font-bold text-slate-700 mb-1">سعر البيع ($)</label><input type="number" step="0.1" id="newProdPriceUSD" required class="w-full p-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-xs font-bold text-slate-700 mb-1">الكمية المتوفرة</label><input type="number" id="newProdStock" required value="0" class="w-full p-2 border rounded-lg text-sm"></div>
+                <div class="flex justify-end gap-2 pt-2"><button type="button" onclick="toggleAddProductModal()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-sm">إلغاء</button><button type="submit" class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold">حفظ</button></div>
+            </form>
+        </div>
+    </div>
+
+    <div id="editProductModal" class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl p-6 w-full max-w-md shadow-xl border">
+            <h3 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">تعديل المنتج</h3>
+            <form onsubmit="handleSaveProductEdit(event)" class="space-y-4">
+                <input type="hidden" id="editProdId">
+                <div><label class="block text-xs font-bold text-slate-700 mb-1">القسم</label><select id="editProdCategory" class="w-full p-2 border rounded-lg text-sm bg-slate-50"><option value="منظمات الجهد">منظمات الجهد</option><option value="مقاييس مستوى السوائل">مقاييس مستوى السوائل</option><option value="الحمايات">الحمايات</option><option value="الحمايات الصناعية (فولت – سايكل)">الحمايات الصناعية</option><option value="الشواحن الإلكترونية وأنظمة الطاقة">الشواحن وأنظمة الطاقة</option><option value="أوتوماتيك الدرج">أوتوماتيك الدرج</option></select></div>
+                <div><label class="block text-xs font-bold text-slate-700 mb-1">الاسم</label><input type="text" id="editProdName" required class="w-full p-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-xs font-bold text-slate-700 mb-1">السعر ($)</label><input type="number" step="0.1" id="editProdPriceUSD" required class="w-full p-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-xs font-bold text-slate-700 mb-1">المتوفر</label><input type="number" id="editProdStock" required class="w-full p-2 border rounded-lg text-sm"></div>
+                <div class="flex justify-end gap-2 pt-2"><button type="button" onclick="toggleEditProductModal()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-sm">إلغاء</button><button type="submit" class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold">حفظ</button></div>
+            </form>
+        </div>
+    </div>
+
+    <div id="editBOMModal" class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl p-6 w-full max-w-lg shadow-xl border">
+            <h3 class="text-lg font-bold text-slate-800 mb-1 border-b pb-2 flex items-center justify-between">
+                <span>تعديل المكونات والوصفة (BOM)</span>
+                <span id="bomModalProductName" class="text-xs text-blue-600 font-bold"></span>
+            </h3>
+            <input type="hidden" id="bomEditingProdId">
+            <div class="my-4 space-y-3">
+                <div class="max-h-52 overflow-y-auto space-y-2 border rounded-lg p-3 bg-slate-50" id="currentBOMListContainer"></div>
+                <div class="p-3 bg-blue-50 border border-blue-100 rounded-lg flex flex-col sm:flex-row gap-2 items-end">
+                    <div class="flex-1 w-full"><label class="block text-[11px] font-bold text-slate-700 mb-1">المادة:</label><select id="selectRawToAdd" class="w-full p-2 border rounded text-xs bg-white"></select></div>
+                    <div class="w-full sm:w-24"><label class="block text-[11px] font-bold text-slate-700 mb-1">الكمية:</label><input type="number" id="inputRawQty" value="1" min="1" class="w-full p-2 border rounded text-xs bg-white text-center"></div>
+                    <button type="button" onclick="addRawToCurrentProductBOM()" class="bg-blue-600 text-white px-3 py-2 rounded text-xs font-bold w-full sm:w-auto"><i class="fas fa-plus"></i> إضافة</button>
+                </div>
+            </div>
+            <div class="flex justify-end pt-2 border-t"><button type="button" onclick="toggleEditBOMModal()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-sm font-bold">إغلاق</button></div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://ofshhzsajqfrwndlujvc.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_QABz7TmmSSkWnUIi6L3KBw_bQo1CBIr';
+        
+        let _supabase;
+        try {
+            _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        } catch (err) {
+            showGlobalError("فشل إنشاء اتصال Supabase: " + err.message);
+        }
+
+        let rawMaterials = [];
+        let inventory = [];
+        let productionHistory = [];
+        let salesLog = [];
+        let invoiceCart = [];
+        let exchangeRate = 0;
+
+        try {
+            document.getElementById('currentDate').innerText = new Date().toLocaleDateString('ar-SY');
+            document.getElementById('invoiceDateStr').innerText = new Date().toLocaleDateString('ar-SY');
+        } catch(e) {}
+
+        function showGlobalError(msg) {
+            const screen = document.getElementById('errorScreen');
+            const details = document.getElementById('errorDetails');
+            if(screen && details) {
+                details.innerText = msg;
+                screen.classList.remove('hidden');
+                screen.classList.add('flex');
+            }
+        }
+
+        function toggleMobileSidebar() {
+            document.getElementById('sidebar').classList.toggle('translate-x-full');
+        }
+
+        async function fetchAllDataFromSupabase() {
+            if (!_supabase) {
+                showGlobalError("عميل Supabase غير متاح.");
+                return;
+            }
+            try {
+                const { data: rawData, error: err1 } = await _supabase.from('raw_materials').select('*');
+                if (err1) throw err1;
+                if (rawData) rawMaterials = rawData;
+
+                const { data: prodData, error: err2 } = await _supabase.from('inventory').select('*');
+                if (err2) throw err2;
+                if (prodData) inventory = prodData;
+
+                const { data: histData, error: err3 } = await _supabase.from('production_history').select('*');
+                if (err3) throw err3;
+                if (histData) productionHistory = histData;
+
+                const { data: salesData, error: err4 } = await _supabase.from('sales_log').select('*');
+                if (err4) throw err4;
+                if (salesData) salesLog = salesData;
+
+                renderRawMaterialsTable();
+                renderInventoryTable();
+                renderInvoiceProducts(inventory);
+                renderDashboard();
+            } catch (err) {
+                console.error("خطأ الجلب:", err);
+                showGlobalError("خطأ قاعدة بيانات: " + (err.message || JSON.stringify(err)));
+            }
+        }
+
+        function calculateProductBOMCost(product) {
+            if (!product.bom || product.bom.length === 0) return 0;
+            return product.bom.reduce((total, b) => {
+                const rawMat = rawMaterials.find(r => r.id === b.rawId);
+                const cost = rawMat ? rawMat.costUSD : 0;
+                return total + (cost * b.qty);
+            }, 0);
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            if (window.innerWidth < 1024) toggleMobileSidebar();
+
+            const titles = { 
+                'dashboard': 'لوحة التحكم الرئيسية', 
+                'rawWarehouse': 'مستودع المواد الأولية والتكاليف', 
+                'production': 'قسم الإنتاج والتجميع', 
+                'inventory': 'مستودع المنتجات الجاهزة والربحية', 
+                'invoice': 'الفاتورة ونقطة البيع' 
+            };
+            document.getElementById('pageTitle').innerText = titles[tabId];
+
+            document.querySelectorAll('aside nav button').forEach(btn => btn.classList.remove('text-blue-400', 'bg-slate-800'));
+            const activeBtn = document.getElementById('btn-' + tabId);
+            if(activeBtn) activeBtn.classList.add('text-blue-400', 'bg-slate-800');
+
+            if (tabId === 'rawWarehouse') renderRawMaterialsTable();
+            if (tabId === 'production') setupProductionTab();
+            if (tabId === 'inventory') renderInventoryTable();
+            if (tabId === 'dashboard') renderDashboard();
+        }
+
+        function updateExchangeRate() {
+            exchangeRate = parseFloat(document.getElementById('usdExchangeRate').value) || 0;
+            renderRawMaterialsTable();
+            renderInventoryTable();
+            renderInvoiceProducts(inventory);
+            updateInvoiceUI();
+            renderDashboard();
+        }
+
+        function renderRawMaterialsTable() {
+            const tbody = document.getElementById('rawMaterialsTable');
+            tbody.innerHTML = rawMaterials.map(mat => {
+                const itemTotalValue = (mat.costUSD || 0) * (mat.stock || 0);
+                return `
+                    <tr class="border-b hover:bg-slate-50">
+                        <td class="p-3 font-mono text-xs text-purple-600 font-bold">#RAW-${mat.id}</td>
+                        <td class="p-3 font-bold text-slate-800">${mat.name}</td>
+                        <td class="p-3 text-center font-bold text-purple-700">$${(mat.costUSD || 0).toFixed(2)}</td>
+                        <td class="p-3 text-center text-slate-600">${((mat.costUSD || 0) * exchangeRate).toLocaleString()} ل.س</td>
+                        <td class="p-3 text-center font-bold text-base text-slate-800">${mat.stock || 0} ${mat.unit || ''}</td>
+                        <td class="p-3 text-center font-bold text-emerald-600">$${itemTotalValue.toFixed(2)}</td>
+                        <td class="p-3 text-center">
+                            <div class="flex items-center justify-center gap-2">
+                                <button onclick="openEditRawModal(${mat.id})" class="p-1.5 bg-blue-50 text-blue-600 rounded text-xs font-bold"><i class="fas fa-edit"></i></button>
+                                <button onclick="deleteRawMaterial(${mat.id})" class="p-1.5 bg-red-50 text-red-600 rounded text-xs font-bold"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function toggleAddRawModal() {
+            const m = document.getElementById('addRawModal');
+            m.classList.toggle('hidden'); m.classList.toggle('flex');
+        }
+
+        async function handleAddNewRawMaterial(e) {
+            e.preventDefault();
+            const name = document.getElementById('newRawName').value;
+            const costUSD = parseFloat(document.getElementById('newRawCostUSD').value) || 0;
+            const unit = document.getElementById('newRawUnit').value;
+            const stock = parseInt(document.getElementById('newRawStock').value);
+            const newMat = { name, costUSD, unit, stock };
+
+            const { data, error } = await _supabase.from('raw_materials').insert([newMat]).select();
+            if (error) { showGlobalError(error.message); return; }
+            if (data && data[0]) rawMaterials.push(data[0]);
+            renderRawMaterialsTable();
+            toggleAddRawModal();
+            showToast('تمت إضافة المادة بنجاح', 'success');
+            e.target.reset();
+        }
+
+        function toggleRestockRawModal() {
+            const modal = document.getElementById('restockRawModal');
+            modal.classList.toggle('hidden'); modal.classList.toggle('flex');
+            if (!modal.classList.contains('hidden')) {
+                document.getElementById('restockSelectId').innerHTML = rawMaterials.map(r => `<option value="${r.id}">${r.name} (المتوفر: ${r.stock})</option>`).join('');
+                onRestockMaterialSelect();
+            }
+        }
+
+        function onRestockMaterialSelect() {
+            const rawId = parseInt(document.getElementById('restockSelectId').value);
+            const mat = rawMaterials.find(r => r.id === rawId);
+            if (mat) document.getElementById('restockNewCostUSD').value = mat.costUSD;
+        }
+
+        async function handleRestockRaw(e) {
+            e.preventDefault();
+            const rawId = parseInt(document.getElementById('restockSelectId').value);
+            const addQty = parseInt(document.getElementById('restockAddQty').value) || 0;
+            const newCost = parseFloat(document.getElementById('restockNewCostUSD').value) || 0;
+            const mat = rawMaterials.find(r => r.id === rawId);
+            if (mat) {
+                mat.stock += addQty;
+                mat.costUSD = newCost;
+                await _supabase.from('raw_materials').update({ stock: mat.stock, costUSD: mat.costUSD }).eq('id', rawId);
+                renderRawMaterialsTable();
+                toggleRestockRawModal();
+                showToast('تم التوريد بنجاح', 'success');
+            }
+        }
+
+        function openEditRawModal(id) {
+            const mat = rawMaterials.find(r => r.id === id);
+            if (!mat) return;
+            document.getElementById('editRawId').value = mat.id;
+            document.getElementById('editRawName').value = mat.name;
+            document.getElementById('editRawCostUSD').value = mat.costUSD;
+            document.getElementById('editRawUnit').value = mat.unit;
+            document.getElementById('editRawStock').value = mat.stock;
+            toggleEditRawModal();
+        }
+
+        function toggleEditRawModal() {
+            const m = document.getElementById('editRawModal');
+            m.classList.toggle('hidden'); m.classList.toggle('flex');
+        }
+
+        async function handleSaveRawEdit(e) {
+            e.preventDefault();
+            const id = parseInt(document.getElementById('editRawId').value);
+            const mat = rawMaterials.find(r => r.id === id);
+            if (mat) {
+                mat.name = document.getElementById('editRawName').value;
+                mat.costUSD = parseFloat(document.getElementById('editRawCostUSD').value) || 0;
+                mat.unit = document.getElementById('editRawUnit').value;
+                mat.stock = parseInt(document.getElementById('editRawStock').value);
+                await _supabase.from('raw_materials').update({ name: mat.name, costUSD: mat.costUSD, unit: mat.unit, stock: mat.stock }).eq('id', id);
+                renderRawMaterialsTable();
+                toggleEditRawModal();
+                showToast('تم التحديث بنجاح', 'success');
+            }
+        }
+
+        async function deleteRawMaterial(id) {
+            if (confirm('هل أنت متأكد من الحذف؟')) {
+                await _supabase.from('raw_materials').delete().eq('id', id);
+                rawMaterials = rawMaterials.filter(r => r.id !== id);
+                renderRawMaterialsTable();
+                showToast('تم الحذف', 'success');
+            }
+        }
+
+        function renderInventoryTable() {
+            const tbody = document.getElementById('inventoryTable');
+            tbody.innerHTML = inventory.map(item => {
+                const bomCostUSD = calculateProductBOMCost(item);
+                const profitUSD = (item.priceUSD || 0) - bomCostUSD;
+                return `
+                    <tr class="border-b hover:bg-slate-50">
+                        <td class="p-3"><span class="bg-slate-100 text-slate-700 text-xs px-2 py-1 rounded font-bold">${item.category || 'عام'}</span></td>
+                        <td class="p-3 font-bold text-slate-800">${item.name}</td>
+                        <td class="p-3 text-center text-purple-700 font-bold">$${bomCostUSD.toFixed(2)}</td>
+                        <td class="p-3 text-center text-emerald-600 font-bold">$${(item.priceUSD || 0).toFixed(2)}</td>
+                        <td class="p-3 text-center font-bold ${profitUSD >= 0 ? 'text-blue-600' : 'text-red-600'}">+$${profitUSD.toFixed(2)}</td>
+                        <td class="p-3 text-center text-slate-600">${((item.priceUSD || 0) * exchangeRate).toLocaleString()} ل.س</td>
+                        <td class="p-3 text-center font-bold text-base text-slate-800">${item.stock || 0}</td>
+                        <td class="p-3 text-center">
+                            <div class="flex items-center justify-center gap-1.5">
+                                <button onclick="openEditBOMModal(${item.id})" class="p-1.5 bg-purple-50 text-purple-600 rounded text-xs font-bold"><i class="fas fa-cogs"></i></button>
+                                <button onclick="openEditProductModal(${item.id})" class="p-1.5 bg-blue-50 text-blue-600 rounded text-xs font-bold"><i class="fas fa-edit"></i></button>
+                                <button onclick="deleteProduct(${item.id})" class="p-1.5 bg-red-50 text-red-600 rounded text-xs font-bold"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function openEditBOMModal(id) {
+            const product = inventory.find(p => p.id === id);
+            if (!product) return;
+            document.getElementById('bomEditingProdId').value = product.id;
+            document.getElementById('bomModalProductName').innerText = product.name;
+            document.getElementById('selectRawToAdd').innerHTML = rawMaterials.map(r => `<option value="${r.id}">${r.name} ($${r.costUSD})</option>`).join('');
+            renderCurrentBOMList(product);
+            toggleEditBOMModal();
+        }
+
+        function toggleEditBOMModal() {
+            const m = document.getElementById('editBOMModal');
+            m.classList.toggle('hidden'); m.classList.toggle('flex');
+            renderInventoryTable();
+        }
+
+        function renderCurrentBOMList(product) {
+            const container = document.getElementById('currentBOMListContainer');
+            if (!product.bom || product.bom.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">لا توجد مواد مسجلة.</p>`;
+                return;
+            }
+            container.innerHTML = product.bom.map((b, index) => {
+                const rawMat = rawMaterials.find(r => r.id === b.rawId);
+                return `
+                    <div class="flex justify-between items-center p-2 bg-white border rounded text-xs">
+                        <span class="font-bold text-slate-700">${rawMat ? rawMat.name : 'مكون محذوف'}</span>
+                        <div class="flex items-center gap-3">
+                            <span class="bg-slate-100 px-2 py-1 rounded font-bold">${b.qty} ${rawMat ? rawMat.unit : ''}</span>
+                            <button onclick="removeRawFromProductBOM(${product.id}, ${index})" class="text-red-500 p-1"><i class="fas fa-times-circle"></i></button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function addRawToCurrentProductBOM() {
+            const prodId = parseInt(document.getElementById('bomEditingProdId').value);
+            const rawId = parseInt(document.getElementById('selectRawToAdd').value);
+            const qty = parseInt(document.getElementById('inputRawQty').value) || 1;
+            const product = inventory.find(p => p.id === prodId);
+            if (!product) return;
+            if (!product.bom) product.bom = [];
+            const existing = product.bom.find(b => b.rawId === rawId);
+            if (existing) existing.qty += qty;
+            else product.bom.push({ rawId, qty });
+            await _supabase.from('inventory').update({ bom: product.bom }).eq('id', prodId);
+            renderCurrentBOMList(product);
+            showToast('تمت الإضافة', 'success');
+        }
+
+        async function removeRawFromProductBOM(prodId, index) {
+            const product = inventory.find(p => p.id === prodId);
+            if (!product || !product.bom) return;
+            product.bom.splice(index, 1);
+            await _supabase.from('inventory').update({ bom: product.bom }).eq('id', prodId);
+            renderCurrentBOMList(product);
+            showToast('تم الحذف', 'success');
+        }
+
+        function toggleAddProductModal() {
+            const m = document.getElementById('addProductModal');
+            m.classList.toggle('hidden'); m.classList.toggle('flex');
+        }
+
+        async function handleAddNewProduct(e) {
+            e.preventDefault();
+            const category = document.getElementById('newProdCategory').value;
+            const name = document.getElementById('newProdName').value;
+            const priceUSD = parseFloat(document.getElementById('newProdPriceUSD').value);
+            const stock = parseInt(document.getElementById('newProdStock').value);
+            const newProd = { category, name, priceUSD, stock, bom: [] };
+            
+            const { data, error } = await _supabase.from('inventory').insert([newProd]).select();
+            if (error) { showGlobalError(error.message); return; }
+            if (data && data[0]) inventory.push(data[0]);
+            renderInventoryTable();
+            renderInvoiceProducts(inventory);
+            toggleAddProductModal();
+            showToast('تمت إضافة المنتج', 'success');
+            e.target.reset();
+        }
+
+        function openEditProductModal(id) {
+            const item = inventory.find(p => p.id === id);
+            if (!item) return;
+            document.getElementById('editProdId').value = item.id;
+            document.getElementById('editProdCategory').value = item.category;
+            document.getElementById('editProdName').value = item.name;
+            document.getElementById('editProdPriceUSD').value = item.priceUSD;
+            document.getElementById('editProdStock').value = item.stock;
+            toggleEditProductModal();
+        }
+
+        function toggleEditProductModal() {
+            const m = document.getElementById('editProductModal');
+            m.classList.toggle('hidden'); m.classList.toggle('flex');
+        }
+
+        async function handleSaveProductEdit(e) {
+            e.preventDefault();
+            const id = parseInt(document.getElementById('editProdId').value);
+            const item = inventory.find(p => p.id === id);
+            if (item) {
+                item.category = document.getElementById('editProdCategory').value;
+                item.name = document.getElementById('editProdName').value;
+                item.priceUSD = parseFloat(document.getElementById('editProdPriceUSD').value);
+                item.stock = parseInt(document.getElementById('editProdStock').value);
+                await _supabase.from('inventory').update({ category: item.category, name: item.name, priceUSD: item.priceUSD, stock: item.stock }).eq('id', id);
+                renderInventoryTable();
+                renderInvoiceProducts(inventory);
+                toggleEditProductModal();
+                showToast('تم التحديث', 'success');
+            }
+        }
+
+        async function deleteProduct(id) {
+            if (confirm('هل أنت متأكد من الحذف؟')) {
+                await _supabase.from('inventory').delete().eq('id', id);
+                inventory = inventory.filter(p => p.id !== id);
+                renderInventoryTable();
+                renderInvoiceProducts(inventory);
+                showToast('تم الحذف', 'success');
+            }
+        }
+
+        function setupProductionTab() {
+            document.getElementById('prodSelectProduct').innerHTML = inventory.map(item => `<option value="${item.id}">${item.name}</option>`).join('');
+            updateBOMPreview();
+            renderProductionHistory();
+        }
+
+        function updateBOMPreview() {
+            const prodId = parseInt(document.getElementById('prodSelectProduct').value);
+            const qtyToProduce = parseInt(document.getElementById('prodQuantity').value) || 1;
+            const product = inventory.find(p => p.id === prodId);
+            if (!product) return;
+
+            const previewContainer = document.getElementById('bomListPreview');
+            const badge = document.getElementById('bomStatusBadge');
+            const btn = document.getElementById('btnExecuteProduction');
+            const batchCostLabel = document.getElementById('bomBatchTotalCost');
+
+            if (!product.bom || product.bom.length === 0) {
+                previewContainer.innerHTML = `<p class="text-slate-400">لا توجد مكونات مسجلة.</p>`;
+                badge.innerText = "لا توجد وصفة";
+                badge.className = "text-[10px] px-2 py-0.5 rounded font-bold bg-amber-100 text-amber-700";
+                batchCostLabel.innerText = "$0.00";
+                btn.disabled = true;
+                return;
+            }
+
+            let allAvailable = true;
+            let previewHTML = '';
+            let singleUnitCost = 0;
+
+            product.bom.forEach(b => {
+                const rawMat = rawMaterials.find(r => r.id === b.rawId);
+                const requiredTotal = b.qty * qtyToProduce;
+                const isSufficient = rawMat && rawMat.stock >= requiredTotal;
+                const matCost = rawMat ? rawMat.costUSD : 0;
+                singleUnitCost += (matCost * b.qty);
+                if (!isSufficient) allAvailable = false;
+
+                previewHTML += `
+                    <div class="flex justify-between items-center p-2 rounded ${isSufficient ? 'bg-emerald-50 text-emerald-900' : 'bg-red-50 text-red-900'}">
+                        <span>${rawMat ? rawMat.name : 'مكون محذوف'}</span>
+                        <span class="font-bold">${requiredTotal} (المتوفر: ${rawMat ? rawMat.stock : 0})</span>
+                    </div>
+                `;
+            });
+
+            previewContainer.innerHTML = previewHTML;
+            const totalBatchCost = singleUnitCost * qtyToProduce;
+            batchCostLabel.innerText = `$${totalBatchCost.toFixed(2)}`;
+
+            if (allAvailable) {
+                badge.innerText = "المواد متوفرة";
+                badge.className = "text-[10px] px-2 py-0.5 rounded font-bold bg-emerald-100 text-emerald-700";
+                btn.disabled = false;
+            } else {
+                badge.innerText = "مكونات ناقصة!";
+                badge.className = "text-[10px] px-2 py-0.5 rounded font-bold bg-red-100 text-red-700";
+                btn.disabled = true;
+            }
+        }
+
+        async function handleProductionSubmit(e) {
+            e.preventDefault();
+            const prodId = parseInt(document.getElementById('prodSelectProduct').value);
+            const qtyToProduce = parseInt(document.getElementById('prodQuantity').value);
+            const product = inventory.find(p => p.id === prodId);
+            if (!product || !product.bom) return;
+
+            for (let b of product.bom) {
+                const rawMat = rawMaterials.find(r => r.id === b.rawId);
+                if (rawMat) {
+                    rawMat.stock -= (b.qty * qtyToProduce);
+                    await _supabase.from('raw_materials').update({ stock: rawMat.stock }).eq('id', rawMat.id);
+                }
+            }
+
+            product.stock += qtyToProduce;
+            await _supabase.from('inventory').update({ stock: product.stock }).eq('id', prodId);
+
+            const newLog = {
+                productName: product.name,
+                qty: qtyToProduce,
+                time: new Date().toLocaleTimeString('ar-SY', { hour: '2-digit', minute: '2-digit' })
+            };
+            
+            const { data, error } = await _supabase.from('production_history').insert([newLog]).select();
+            if (error) { showGlobalError(error.message); return; }
+            if (data && data[0]) productionHistory.unshift(data[0]);
+
+            showToast('تم التصنيع بنجاح', 'success');
+            updateBOMPreview();
+            renderProductionHistory();
+            renderRawMaterialsTable();
+            renderInventoryTable();
+        }
+
+        function renderProductionHistory() {
+            document.getElementById('productionHistoryTable').innerHTML = productionHistory.map(log => `
+                <tr class="border-b">
+                    <td class="p-3 font-bold">${log.productName}</td>
+                    <td class="p-3 text-center font-bold text-emerald-600">+${log.qty}</td>
+                    <td class="p-3 text-center text-xs text-slate-500">${log.time}</td>
+                    <td class="p-3 text-center"><span class="bg-blue-100 text-blue-700 text-xs px-2.5 py-1 rounded-full font-bold">جاهز</span></td>
+                </tr>
+            `).join('');
+        }
+
+        function renderInvoiceProducts(productsToRender) {
+            document.getElementById('invoiceProductsList').innerHTML = productsToRender.map(product => `
+                <div class="p-3 bg-white border border-slate-200 rounded-lg cursor-pointer flex justify-between items-center" onclick="addToInvoice(${product.id})">
+                    <div>
+                        <h4 class="font-bold text-xs text-slate-800">${product.name}</h4>
+                        <p class="text-xs text-emerald-600 font-bold">$${(product.priceUSD || 0).toFixed(2)}</p>
+                        <p class="text-[10px] text-slate-400">المتوفر: ${product.stock || 0}</p>
+                    </div>
+                    <i class="fas fa-plus text-blue-500"></i>
+                </div>
+            `).join('');
+        }
+
+        function filterInvoiceProducts() {
+            const cat = document.getElementById('invoiceCatSelect').value;
+            const term = document.getElementById('searchInput').value.toLowerCase();
+            let filtered = inventory;
+            if (cat !== 'الكل') filtered = filtered.filter(i => i.category === cat);
+            if (term) filtered = filtered.filter(i => i.name.toLowerCase().includes(term));
+            renderInvoiceProducts(filtered);
+        }
+
+        function addToInvoice(id) {
+            const product = inventory.find(p => p.id === id);
+            if (!product || (product.stock || 0) <= 0) {
+                showToast('غير متوفر بالمستودع!', 'error');
+                return;
+            }
+            const existing = invoiceCart.find(i => i.id === id);
+            if (existing) {
+                if (existing.qty + 1 > product.stock) { showToast('تجاوزت المخزون!', 'error'); return; }
+                existing.qty++;
+            } else {
+                invoiceCart.push({ ...product, qty: 1 });
+            }
+            updateInvoiceUI();
+        }
+
+        function changeQty(id, amt) {
+            const item = invoiceCart.find(i => i.id === id);
+            const product = inventory.find(p => p.id === id);
+            if (item) {
+                if (amt > 0 && item.qty + amt > product.stock) { showToast('تجاوزت المخزون!', 'error'); return; }
+                item.qty += amt;
+                if (item.qty <= 0) invoiceCart = invoiceCart.filter(i => i.id !== id);
+                updateInvoiceUI();
+            }
+        }
+
+        function updateInvoiceUI() {
+            let totalUSD = 0;
+            document.getElementById('invoiceItems').innerHTML = invoiceCart.map(item => {
+                const total = (item.priceUSD || 0) * item.qty;
+                totalUSD += total;
+                return `
+                    <tr class="border-b">
+                        <td class="p-3 font-medium">${item.name}</td>
+                        <td class="p-3 text-center">
+                            <button onclick="changeQty(${item.id}, 1)" class="px-1.5 bg-slate-200 rounded font-bold">+</button>
+                            <span class="px-2 font-bold">${item.qty}</span>
+                            <button onclick="changeQty(${item.id}, -1)" class="px-1.5 bg-slate-200 rounded font-bold">-</button>
+                        </td>
+                        <td class="p-3 text-center">$${(item.priceUSD || 0).toFixed(2)}</td>
+                        <td class="p-3 text-center font-bold">$${total.toFixed(2)}</td>
+                        <td class="p-3 text-center"><button onclick="changeQty(${item.id}, -999)" class="text-red-500"><i class="fas fa-trash"></i></button></td>
+                    </tr>
+                `;
+            }).join('');
+            document.getElementById('grandTotalUSD').innerText = '$' + totalUSD.toFixed(2);
+            document.getElementById('grandTotalSYP').innerText = (totalUSD * exchangeRate).toLocaleString() + ' ل.س';
+        }
+
+        function clearInvoice() {
+            invoiceCart = [];
+            updateInvoiceUI();
+        }
+
+        async function processCheckoutAndDeduct() {
+            if (invoiceCart.length === 0) return;
+            let totalUSD = 0;
+            for (let item of invoiceCart) {
+                const prod = inventory.find(p => p.id === item.id);
+                if (prod) {
+                    prod.stock -= item.qty;
+                    await _supabase.from('inventory').update({ stock: prod.stock }).eq('id', prod.id);
+                }
+                totalUSD += (item.priceUSD || 0) * item.qty;
+            }
+
+            const newSale = {
+                id: 'INV-' + (1000 + salesLog.length + 1),
+                customer: document.getElementById('custName').value || 'عميل نقدي',
+                totalUSD: totalUSD,
+                totalSYP: totalUSD * exchangeRate,
+                time: new Date().toLocaleTimeString('ar-SY', { hour: '2-digit', minute: '2-digit' })
+            };
+
+            const { data, error } = await _supabase.from('sales_log').insert([newSale]).select();
+            if (error) { showGlobalError(error.message); return; }
+            if (data && data[0]) salesLog.unshift(data[0]);
+
+            showToast('تمت عملية البيع بنجاح', 'success');
+            invoiceCart = [];
+            document.getElementById('custName').value = '';
+            document.getElementById('custPhone').value = '';
+            updateInvoiceUI();
+            renderInventoryTable();
+            renderInvoiceProducts(inventory);
+            renderDashboard();
+        }
+
+        function renderDashboard() {
+            const sumUSD = salesLog.reduce((a, b) => a + (b.totalUSD || 0), 0);
+            document.getElementById('dashTotalUSD').innerText = '$' + sumUSD.toFixed(2);
+            document.getElementById('dashTotalSYP').innerText = (sumUSD * exchangeRate).toLocaleString() + ' ل.س';
+            
+            const rawVal = rawMaterials.reduce((a, b) => a + ((b.costUSD || 0) * (b.stock || 0)), 0);
+            document.getElementById('dashRawTotalValue').innerText = '$' + rawVal.toFixed(2);
+            document.getElementById('dashProdLogsCount').innerText = productionHistory.length;
+
+            document.getElementById('dashSalesLog').innerHTML = salesLog.map(s => `
+                <tr class="border-b"><td class="p-2 font-bold text-blue-600">${s.id}</td><td class="p-2">${s.customer}</td><td class="p-2 text-center text-emerald-600">$${(s.totalUSD || 0).toFixed(2)}</td><td class="p-2 text-center text-blue-600">${(s.totalSYP || 0).toLocaleString()} ل.س</td></tr>
+            `).join('');
+
+            document.getElementById('dashProdHistory').innerHTML = productionHistory.map(p => `
+                <tr class="border-b"><td class="p-2 font-bold">${p.productName}</td><td class="p-2 text-center text-amber-600">+${p.qty}</td><td class="p-2 text-center text-xs text-slate-500">${p.time}</td></tr>
+            `).join('');
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `p-3 rounded-lg shadow-lg text-white font-bold text-xs flex items-center gap-2 ${type === 'error' ? 'bg-red-600' : 'bg-emerald-600'}`;
+            toast.innerHTML = `<i class="fas ${type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'}"><span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        // تشغيل الجلب عند بدء التحميل
+        fetchAllDataFromSupabase();
+    </script>
+</body>
+</html>
